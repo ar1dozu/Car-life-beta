@@ -1,0 +1,63 @@
+
+name: Build CAR LIFE Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3.0
+
+    steps:
+      - name: Download source
+        uses: actions/checkout@v4
+
+      - name: Fix project paths
+        run: |
+          sed -i 's#res://scenes/main.tscn#res://main.tscn#g' project.godot
+          sed -i 's#res://scripts/main.gd#res://main.gd#g' main.tscn
+          sed -i 's#res://scripts/car.gd#res://car.gd#g' main.gd
+
+      - name: Create Android export preset
+        run: |
+          cat > export_presets.cfg <<'EOF'
+          [preset.0]
+          name="Android"
+          platform="Android"
+          runnable=true
+          export_filter="all_resources"
+          export_path="build/CAR-LIFE.apk"
+
+          [preset.0.options]
+          custom_template/debug=""
+          custom_template/release=""
+          architectures/armeabi-v7a=false
+          architectures/arm64-v8a=true
+          architectures/x86=false
+          architectures/x86_64=false
+          version/code=1
+          version/name="0.1.0"
+          package/unique_name="com.ar1dozu.carlife"
+          package/name="CAR LIFE"
+          package/signed=true
+          screen/immersive_mode=true
+          EOF
+
+      - name: Import project
+        run: godot --headless --editor --path . --quit
+
+      - name: Build APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/CAR-LIFE.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CAR-LIFE-Android-APK
+          path: build/CAR-LIFE.apk
+          if-no-files-found: error
